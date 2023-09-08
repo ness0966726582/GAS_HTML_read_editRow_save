@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  
+  <base target="_top">
+  <style>
+    .container {
+      display: flex;
+    }
+
+    .data-container {
+      width: 30%;
+      padding: 5px;
+    }
+
+    .edit-container {
+      width: 70%;
+      padding: 5px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th, td {
+      border: 1px solid black;
+      padding: 8px;
+      text-align: left;
+    }
+
+    button {
+      margin: 5px;
+    }
+  </style>
+  <script>
+    var editingRow = -1; // 初始情況下未進行編輯
+    var isEditing = false;
+
+    function getData() {
+      var sheetName = document.getElementById('sheet-select').value;
+      google.script.run.withSuccessHandler(displayData).getData(sheetName);
+    }
+
+    function displayData(data) {
+      var parsedData = JSON.parse(data);
+      var table = '<table>';
+      for (var i = 0; i < parsedData.length; i++) {
+        table += '<tr>';
+        for (var j = 0; j < parsedData[i].length; j++) {
+          table += '<td>' + parsedData[i][j] + '</td>';
+        }
+        // 新增編輯按鈕，並設定每個按鈕的行和列
+        table += '<td><button onclick="editRow(' + i + ',' + (parsedData[i].length + 1) + ')"' + (isEditing ? ' disabled' : '') + '>編輯</button></td>';
+        table += '</tr>';
+      }
+      table += '</table>';
+      document.getElementById('data-container').innerHTML = table;
+    }
+
+    // 新增編輯按鈕的函數，並設定正在編輯的行和列
+    function editRow(row, col) {
+      if (!isEditing) { // 確保不在編輯模式下多次點擊
+        isEditing = true;
+        editingRow = row;
+        var sheetName = document.getElementById('sheet-select').value;
+        var table = document.querySelector('table');
+        var cells = table.rows[row].cells;
+        var editValueInputs = document.getElementById('edit-value-container');
+
+        for (var i = 0; i < cells.length - 1; i++) { // -1 是因為最後一個單元格是編輯按鈕
+          var input = document.createElement('input');
+          input.type = 'text';
+          input.value = cells[i].textContent;
+          input.id = 'edit-value-' + i;
+          editValueInputs.appendChild(input);
+        }
+
+        var saveButton = document.createElement('button');
+        saveButton.textContent = '保存';
+        saveButton.onclick = function() {
+          saveRow(sheetName, row, col);
+        };
+        editValueInputs.appendChild(saveButton);
+
+        // 禁用編輯按鈕
+        var editButton = table.rows[row].querySelector('button');
+        editButton.disabled = true;
+      }
+    }
+
+    // 保存行的函數
+    function saveRow(sheetName, row, col) {
+      var values = [];
+      for (var i = 0; i < col - 1; i++) { // -1 是因為最後一個是保存按鈕
+        values.push(document.getElementById('edit-value-' + i).value);
+      }
+      google.script.run.editRow(sheetName, row, col, values);
+      getData(); // 重新獲取並顯示數據
+      editingRow = -1; // 重置正在編輯的行
+      var editValueInputs = document.getElementById('edit-value-container');
+      editValueInputs.innerHTML = ''; // 清空輸入框
+
+      // 解鎖編輯按鈕
+      var table = document.querySelector('table');
+      var editButton = table.rows[row].querySelector('button');
+      editButton.disabled = false;
+      isEditing = false; // 重置狀態為非編輯
+    }
+  </script>
+</head>
+<body>
+  <h1>Google Sheets 分頁內容</h1>
+
+  <label for="sheet-select">選擇分頁：</label>
+  <select id="sheet-select">
+    <option value="table_byLog">table_byLog</option>
+    <option value="table_byLocation">table_byLocation</option>
+    <option value="table_byName">table_byName</option>
+    <!-- 在這裡添加其他分頁選項 -->
+  </select>
+
+  <button onclick="getData()">獲取數據</button>
+
+  <div class="container">
+    <div class="data-container" id="data-container"></div>
+    <div class="edit-container" id="edit-value-container"></div>
+  </div>
+</body>
+</html>
+
+
